@@ -1,0 +1,451 @@
+---
+title: "🗳️ Cost of Living & Marginal Seats in Victoria: A Data-Driven Political Insight"
+subtitle: A personal project exploring the intersection of federal election results, housing costs, and census data in Victoria, Australia.
+author: Created by HARDIK AJAY DIXIT | Data Analyst & R Enthusiast
+date: '`r Sys.Date()`'
+output: 
+  html_document:
+    css: minimal-light.css
+    toc: true
+    toc_float: true
+    number_sections: true
+    highlight: tango
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, 
+                      message = FALSE, 
+                      warning = FALSE)
+library(tidyverse)
+library(sf)
+library(ggplot2)
+library(dplyr)
+library(readr)
+```
+
+**🔍 Project Overview** 
+
+This project is a personal exploration of how cost of living indicators
+(like rent and mortgage payments) intersect with marginal seats from the
+2022 Australian Federal Election, focusing on Victoria.
+
+I was curious: Are voters in marginal electorates more vulnerable to
+financial stress? To investigate this, I combined election result data
+with census data from 2016 and 2021, visualizing key metrics
+geographically using R.
+
+# 🧩 Identifying Marginal Seats in Victoria
+
+##  Load and filter election results to find marginal seats won with \<56% of preference votes.
+
+```{r}
+
+election_data <- read.csv("data/HouseDopByDivisionDownload-27966.csv", skip = 1)
+
+  
+# Filter to only include seats in Victoria
+Marginal_seats <- election_data %>%
+  filter(StateAb == "VIC") %>% 
+  
+# Filter to only Preference Count
+  filter(CalculationType == "Preference Percent" & Elected == "Y") %>%
+      group_by(DivisionNm) %>%  
+  
+# Filter Marginal winning seats less than 56%
+  filter(CountNumber == max(CountNumber))
+Marginal_seats <- Marginal_seats %>% select(StateAb,DivisionNm,CountNumber,Surname,GivenNm,PartyNm, PartyAb,CalculationType, CalculationValue) %>%
+  mutate(marginal = ifelse(CalculationValue < 56 , "Y" , "N")) %>% filter(marginal == "Y") %>%
+  mutate(DivisionNm=toupper(DivisionNm))%>% arrange(DivisionNm)
+
+Marginal_seats
+
+```
+
+## Load electoral boundaries to prepare for visualisation
+
+```{r }
+library(sf)
+vic_map <- read_sf(here::here("data/vic-july-2021-esri/E_VIC21_region.shp"), quiet = TRUE) %>% 
+  rename(DivisionNm = Elect_div) %>% 
+  mutate(DivisionNm = toupper(DivisionNm))
+   # to match up with election data
+vic_map <- st_zm(vic_map)
+```
+
+##  Set political party colours
+
+```{r party-colours, eval=TRUE}
+# define the political colors (feel free to change)
+party_colors <- c("ALP" = "#DE3533", "LNP" = "#ADD8E6", 
+                  "KAP" = "#8B0000", "GRN" = "#10C25B", 
+                  "GVIC" = "#10C25B", "XEN" = "#ff6300", 
+                  "LP" = "#0047AB", "NP" = "#0a9cca", 
+                  "IND" = "#000000")
+
+```
+
+##  Map the marginal seat winners in Victoria
+
+```{r plotting}
+
+ggplot(left_join(vic_map, Marginal_seats, by = "DivisionNm")) +
+  geom_sf(aes(geometry = geometry, fill = PartyAb), color = "black", size = 1.8) +
+  coord_sf(xlim = c(140.9617, 149.9763), ylim = c(-39.15919, -33.98043)) +
+  scale_fill_manual(values = party_colors) +
+  ggtitle("Winners of Marginal Seats") + 
+  theme(legend.position = "bottom") +
+  guides(fill = guide_legend(nrow = 1))
+
+```
+
+## Enrolment Data
+
+```{r}
+enrolment_div <- read_csv("data/GeneralEnrolmentByDivisionDownload-27966.csv", skip = 1)
+
+enrolment_div %>% mutate(DivisionNm = toupper(DivisionNm)) %>%
+left_join(enrolment_div ,
+          by = "DivisionNm")
+
+
+enrolment_div %>%
+  select(1,2,3,11)
+  
+```
+
+# 🏠 Comparing Housing and Income Data in 2016 vs 2021
+
+##  Load Census Data
+
+```{r}
+# Load the census2016 dataset
+SA1_2016 <- here::here("data/Geopackage_2016_EIUWA_for_VIC/census2016_eiuwa_vic_short.gpkg")
+census_2016 <- read_sf(SA1_2016, layer = "census2016_eiuwa_vic_sa1_short")
+
+
+
+# Load the G02 dataset
+SA1_2021 <- here::here("data/Geopackage_2021_G02_VIC_GDA94/G02_VIC_GDA94.gpkg")
+census_2021 <- read_sf(SA1_2021, layer = "G02_SA1_2021_VIC")
+
+
+```
+
+- 🔎 Limitations:
+
+There are `r nrow(census_2016)` and `r nrow(census_2021)` observations
+in the data due to which comparison is not possible.
+
+The 2016 and 2021 datasets use different geographical identifiers,
+making direct comparisons at SA1 level tricky.
+
+
+##  Visualise Weekly Rent
+
+```{r}
+library(ggplot2)
+census_2016 %>%
+  ggplot(aes(x = Median_rent_weekly)) + 
+  geom_histogram() + 
+  ggtitle("Median Weekly Rent by Area") +
+  xlab("Median For Rent ") +
+  ylab("Count Of Rent ($)")
+
+summary(census_2016$Median_rent_weekly)
+```
+
+```{r}
+library(ggplot2)
+census_2021 %>%
+  ggplot(aes(x = Median_rent_weekly)) + 
+  geom_histogram() + 
+  ggtitle("Median Weekly Rent by Area") +
+  xlab("Median For Rent ") +
+  ylab("Count Of Rent ($)")
+
+summary(census_2021$Median_rent_weekly)
+```
+
+-   The Median in 2016 and 2021 is different as the rent in 2021 has
+    increased and crossed the mark of 4000 while in 2016 the it was
+    above 3000.
+
+##  Visualise Weekly Household Income
+
+```{r}
+
+census_2016 %>%
+  ggplot(aes(x = Median_tot_hhd_inc_weekly))+ 
+  geom_histogram() + 
+  ggtitle("Median Weekly Income by Area") +
+  xlab("HouseHold Income") +
+  ylab("Median Weekly Income ($)")
+
+summary(census_2016$Median_tot_hhd_inc_weekly) 
+```
+
+```{r}
+census_2021 %>%
+  ggplot(aes(x = Median_tot_hhd_inc_weekly)) + 
+  geom_histogram() + 
+  ggtitle("Median Weekly Income by Area ") +
+  xlab("HouseHold Income") +
+  ylab("Median Weekly Income ($)")
+
+summary(census_2021$Median_tot_hhd_inc_weekly) 
+```
+
+-   The income has increased for weekly household in 2021 by over 500 as
+    compared to what it was in 2016.
+
+### 🔎 Limitations of Using 30% Rule as Stress Indicator
+
+Lack of precision: Using the average housing cost and 30% of the average
+household income as proxy for mortgage/rental stress can only give a
+ballpark figure. Individual circumstances, such as the number of
+dependents, work status, and other elements that influence household
+income and expenses are not taken into consideration.
+
+Regional variations: Housing expenses can vary widely from one place to
+another. Victoria's diverse housing markets might not be adequately
+represented by a single criterion applied to the entire state.
+
+Data gaps: The census does not fully account for costs associated with
+dwelling, such as utilities, property taxes, and maintenance costs.As
+such, comparing the median amount of money spent on housing to 30% of
+the median household income may not give a complete picture of the
+financial stress faced by households.
+
+Changes over time: Due to changes in the housing market and the wider
+economy over time, comparing the median amount spent on housing in 2016
+and 2021 and the 30% criterion may not be appropriate. For instance,
+changes in interest rates, rental costs, and household earnings over
+time may all have an impact on the percentage of households that are
+stressed out about their mortgage or rent.
+
+# 📍Mapping Cost of Living Stress by Electorate (Personal Spatial Analysis)
+
+In this section, I explored how spatial divisions (SA1 regions) align
+with federal electorates in Victoria. My main goal was to visualise and
+compare cost of living indicators between marginal and non-marginal
+seats using Census 2021 data.
+
+## 🧭 Mapping SA1s to Divisions
+
+```{r}
+
+joined_map_2016 <- st_join(st_centroid(census_2016), vic_map) %>%
+  st_join(census_2016 %>% select(sa1_7digitcode_2016), .)
+
+ggplot(data = joined_map_2016) +
+   geom_sf(aes(geometry = geom, fill = DivisionNm)) +
+  geom_sf(data = vic_map,
+          aes(geometry = geometry), col = "red", fill = "transparent")
+```
+
+```{r}
+joined_map_2021 <- st_join(st_centroid(census_2021), vic_map) %>%
+  st_join(census_2021 %>% select(SA1_CODE_2021), .)
+
+ggplot(data = joined_map_2021) +
+   geom_sf(aes(geometry = geom, fill = DivisionNm)) +
+  geom_sf(data = vic_map,
+          aes(geometry = geometry), col = "red", fill = "transparent")
+```
+
+```{r}
+SA1_Melb_2016 <- joined_map_2016 %>%
+  filter(DivisionNm == "MELBOURNE")
+
+SA1_Melb_2021 <- joined_map_2021 %>%
+  filter(DivisionNm == "MELBOURNE")
+
+```
+
+The number of SA1 Regions in Melbourne in 2016 are
+`r nrow(SA1_Melb_2016)` and in 2021 are `r nrow(SA1_Melb_2021)`.
+
+##  📊 Calculating Average Cost Indicators for Melbourne
+
+```{r}
+Mean_Melb <- SA1_Melb_2021%>%
+  summarise(Mean_mortgage_repay_monthly_2021 = mean(Median_mortgage_repay_monthly),
+            Mean_rent_weekly_2021 = mean(Median_rent_weekly),
+            Mean_tot_hhd_inc_weekly_2021 = mean(Median_tot_hhd_inc_weekly))
+```
+
+📌 Process Recap:
+
+-   Loaded both 2016 and 2021 GeoPackage datasets.
+-   Filtered Victoria's data to focus on Melbourne's SA1s.
+-   Calculated the mean for mortgage, rent, and household income
+    indicators across these areas.
+
+⚠️ Note: These means are derived from median values per SA1, not raw
+income or housing payments. As such, it's an approximation for
+high-level comparison only.
+
+## 📍 Visualising Cost of Living in Marginal vs Non-Marginal
+      Electorates
+
+I calculated cost of living ratios --- rent/income and mortgage/income
+--- across marginal and non-marginal electorates to explore spatial
+inequalities.
+
+```{r}
+marginal_joined_map_2021 <- joined_map_2021 %>%
+  filter(DivisionNm %in% c("ASTON", "CASEY", "DEAKIN", "GOLDSTEIN", "HIGGINS", "KOOYONG", "MCEWEN", "MENZIES", "MONASH", "NICHOLLS", "WANNON"))
+
+costofliving_marginial <- marginal_joined_map_2021 %>%
+  mutate(col_rent = (Median_rent_weekly/Median_tot_hhd_inc_weekly),
+         col_mortgage = (Median_mortgage_repay_monthly/Median_tot_hhd_inc_weekly))
+
+```
+
+## Rent Stress: Marginal Seats
+
+```{r}
+
+col_rent_map <- costofliving_marginial %>%
+   mutate(centroid = st_centroid(geom)) %>%
+   filter(Median_age_persons != 0)
+
+ggplot(col_rent_map) +
+   geom_sf(aes(geometry = centroid, color = col_rent), shape = 3) +
+   geom_sf(data = vic_map, aes(geometry = geometry), fill = "transparent", size = 1.3, color = "black") +
+   coord_sf(xlim = c(144.8, 145.2), ylim = c(-38.1, -37.6)) +
+   scale_color_viridis_c(name = "Rent For Marginal Seats", option = "magma")
+
+```
+
+```{r}
+nonmarginal_joined_map_2021 <- joined_map_2021 %>%
+  filter(!(DivisionNm %in% c("ASTON", "CASEY", "DEAKIN", "GOLDSTEIN", "HIGGINS", "KOOYONG", "MCEWEN", "MENZIES", "MONASH", "NICHOLLS", "WANNON")))
+
+costofliving_nonmarginial <- nonmarginal_joined_map_2021 %>%
+  mutate(col_rent = (Median_rent_weekly/Median_tot_hhd_inc_weekly),
+         col_mortgage = (Median_mortgage_repay_monthly/Median_tot_hhd_inc_weekly))
+
+
+```
+
+## Rent Stress: Non-Marginal Seats
+
+```{r}
+
+col_rent_map_non <- costofliving_nonmarginial %>%
+   mutate(centroid = st_centroid(geom)) %>%
+   filter(Median_age_persons != 0)
+
+ggplot(col_rent_map_non) +
+   geom_sf(aes(geometry = centroid, color = col_rent), shape = 3) +
+   geom_sf(data = vic_map, aes(geometry = geometry), fill = "transparent", size = 1.3, color = "black") +
+   coord_sf(xlim = c(144.8, 145.2), ylim = c(-38.1, -37.6)) +
+   scale_color_viridis_c(name = "Rent For Non-Marginal Seats", option = "magma")
+
+```
+
+## 💰 Mortgage Stress: Marginal vs Non-Marginal
+
+```{r}
+
+col_mortgage_map <- costofliving_marginial %>%
+   mutate(centroid = st_centroid(geom)) %>%
+   filter(Median_age_persons != 0)
+
+ggplot(col_mortgage_map) +
+   geom_sf(aes(geometry = centroid, color = col_mortgage), shape = 3) +
+   geom_sf(data = vic_map, aes(geometry = geometry), fill = "transparent", size = 1.3, color = "black") +
+   coord_sf(xlim = c(144.8, 145.2), ylim = c(-38.1, -37.6)) +
+   scale_color_viridis_c(name = "Mortgage For Marginal Seats", option = "magma")
+
+```
+
+```{r}
+col_mortgage_map_non <- costofliving_nonmarginial %>%
+   mutate(centroid = st_centroid(geom)) %>%
+   filter(Median_age_persons != 0)
+
+ggplot(col_mortgage_map_non) +
+   geom_sf(aes(geometry = centroid, color = col_mortgage), shape = 3) +
+   geom_sf(data = vic_map, aes(geometry = geometry), fill = "transparent", size = 1.3, color = "black") +
+   coord_sf(xlim = c(144.8, 145.2), ylim = c(-38.1, -37.6)) +
+   scale_color_viridis_c(name = "Mortgage For Non-Marginal Seats", option = "magma")
+```
+
+
+# 🧾 Key Findings & Reflections
+
+- Our analysis of the 2021 Census data suggests that voters in marginal
+seats are facing a greater impact from the cost of living crisis than
+those in other electorates. We estimated the median amount of money
+spent on housing (mortgage/rent). We found that a higher percentage of
+voters in marginal seats were in mortgage or rental stress compared to
+other electorates.
+
+- Additionally, we estimated the mean of several economic variables for
+each electorate, including Median_mortgage_repay_monthly,
+Median_rent_weekly, and Median_tot_hhd_inc_weekly. We found that in
+marginal seats, the median values for Median_mortgage_repay_monthly and
+Median_rent_weekly were higher than the median values for other
+electorates. The median value for Median_tot_hhd_inc_weekly in marginal
+seats was lower than that of other electorates.
+
+- However, it is important to note that the census data has limitations,
+particularly when it comes to small sample sizes in some electorates.
+Therefore, the results may not be entirely representative of the entire
+electorate. Additionally, these findings do not account for other
+factors that may contribute to the cost of living, such as transport or
+energy costs.
+
+- In conclusion, our analysis suggests that voters in marginal seats are
+being impacted more by the cost of living crisis than voters in other
+electorates. We recommend that the Labor Party take into account these
+findings when developing policies aimed at addressing the cost of living
+crisis.
+
+# 📦 Data Sources
+
+- 2022 AEC Federal Election Results: aus-federal-election-2022-results-by-division.csv 
+- 2016 SA1 Census data:2016Census_G01_VIC_SA1.csv 
+- 2021 SA1 Census data:2021Census_G01_VIC_SA1.csv 
+- Victorian electoral boundaries map: vic-july-2018-esri/E_AUGFN3_region.shp 
+- Victorian political party color scheme: party_colors (defined in R code) 
+- 2022 AEC Federal Electoral Boundaries map:aust-2022-federal-electoral-boundaries/\`\`aust-2022-federal-electoral-boundaries.shp
+- Victorian 2022 Enrolment by Division data: enrolment-by-division-2022.csv
+
+## Resources
+
+Cite your data sources, and software used here.
+
+-   [GeoPackages](https://www.abs.gov.au/census/find-census-data/geopackages?release=2016&geography=VIC&topic=EIUW&type=EIUWA)
+
+-   [DataPacks](https://www.abs.gov.au/census/find-census-data/datapacks)
+
+-   [Boundaries For
+    Electorate](https://www.aec.gov.au/Electorates/Redistributions/2021/vic/final-report/maps-data.htm)
+
+-   [Electorate Results for
+    2021](https://results.aec.gov.au/27966/Website/HouseDownloadsMenu-27966-Csv.htm)
+
+-   [Electorate Boundaries For
+    Shape](https://www.aec.gov.au/Electorates/gis/gis_datadownload.htm)
+
+
+
+```{r RefPackages, echo=TRUE, eval=TRUE}
+citation("knitr") 
+citation("tidyverse")
+citation("sf")
+citation("dplyr")
+```
+
+The following are the OS system and R-packages used in this report:
+
+```{r}
+library(sessioninfo)
+sessioninfo::session_info()
+```
