@@ -1,0 +1,711 @@
+---
+title: "📈 Forecasting Food Retail Turnover in Western Australia"
+subtitle: A Business Analytics Case Study on Seasonal Trends, COVID-19 Impacts, and Forecasting
+author: "Hardik Dixit | Business Analyst & Data Storyteller"
+date: "2024-05-23"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+    highlight: tango
+    theme: cosmo
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+# 🧾 Project Overview
+This project explores food retail turnover in Western Australia, using time series data from the Australian Bureau of Statistics (ABS), spanning April 1982 to December 2021.
+
+Key goals:
+
+Identify long-term trends and seasonal patterns
+Analyze the impact of COVID-19
+Build forecasting models using ARIMA and ETS
+Generate actionable retail insights for strategic planning
+
+
+# 📥 Loading & Inspecting the Data
+
+```{r}
+library(fpp3)
+library(tseries)
+library(readxl)
+get_my_data <- function(student_id) {
+  set.seed(33612242)
+  all_data <- readr::read_rds("https://bit.ly/monashretaildata")
+  while(TRUE) {
+    retail <- filter(all_data, `Series ID` == sample(`Series ID`, 1))
+    if(!any(is.na(fill_gaps(retail)$Turnover))) return(retail)
+  }
+}
+# Replace the argument with your student ID
+retail <- get_my_data(33612242)
+```
+
+
+
+# 📊 Time Series Characteristics & Seasonality
+
+```{r}
+# Compute features using the feasts package
+features <- retail %>%
+  features(Turnover, feature_set(pkgs = "feasts"))
+
+# Print the computed features
+print(features)
+```
+
+
+# 🔁 Seasonality Pattern
+
+```{r}
+retail |>
+  gg_season(Turnover, labels = "both") +
+  labs(y = "Turnover(Million AUD$)",
+       title = "Seasonal plot of Retail Trend")
+
+```
+
+```{r}
+retail |>
+  gg_subseries(Turnover) +
+  labs(
+    y = "Turnover(Million AUD$)",
+    title = "Subseries Plot"
+  )
+```
+
+
+# ⏳ Overall Time Series Trend
+
+
+```{r}
+retail %>% 
+  autoplot(Turnover) +
+  labs(titile = "Food Retail Turnover over Time", 
+       y = "Turnover(Million AUD$)") +
+  theme_minimal()
+```
+
+The retail trade volume data for "food retailing" in Western Australia covers a period from April 1982 to December 2021. The following statistical features are observed:
+
+##🔎 Trend Analysis
+The retail turnover series for food in WA demonstrates a strong upward trend with a trend strength of 0.998 — nearly perfect.
+
+📌 What this means for the business:
+
+The upward trajectory reflects population growth, economic expansion, and rising consumer spending over nearly 40 years.
+This trend is statistically robust, and must be modeled accurately to avoid over- or under-forecasting future demand.
+
+
+# 🔍Decomposing Trend & Seasonality (STL)
+
+
+```{r}
+# Seasonal-Trend Decomposition using LOESS (STL)
+stl_retail <- retail %>%
+  model(STL(Turnover ~ trend(window = 7) + season(window = "periodic")))
+
+# Plot STL decomposition
+components(stl_retail) %>%
+  autoplot() +
+  labs(title = "STL Decomposition of Retail Trade Volume")
+```
+📊 Insight: The STL decomposition breaks the series into three interpretable components:
+
+Trend: A strong long-term increase in turnover
+Seasonality: Highly regular seasonal peaks (especially around December)
+Remainder: Irregular spikes, especially in 2020, signal shocks such as COVID-19
+
+
+# 🦠COVID-19 Shock Analysis
+
+```{r}
+
+# Plot focusing on the COVID-19 period using autoplot
+period_covid <- retail %>%
+  filter_index("2019 Jan" ~ "2021 Dec")
+
+period_covid %>%
+  autoplot(Turnover) +
+  labs(title = "Effect of COVID-19 on Retail Trade Volume", y = "Turnover(Million AUD$)") +
+  theme_minimal()
+
+```
+
+## Effect of COVID-19
+
+### Visual Inspection:
+
+- Observation: A detailed examination of the period from January 2019 to December 2021 reveals significant anomalies around the onset of the COVID-19 pandemic. The graph indicates notable disruptions in the trend and seasonal patterns of the retail trade volume.
+
+- Graph: The included plot visually highlights the changes in turnover around the COVID-19 period, showing significant volatility and deviations from the expected trend.
+
+### Impact Analysis:
+
+- Sharp Increases: There are notable sharp increases in turnover during early 2020. This is likely due to panic buying and stockpiling as consumers reacted to the uncertainty and potential shortages caused by the pandemic.
+
+- Fluctuations: The turnover exhibits subsequent fluctuations throughout 2020 and 2021. These fluctuations reflect the effects of lockdowns, restrictions, and changing consumer behavior as the situation evolved.
+
+- Statistical Shifts: The series shows significant shifts in level and variability, highlighting the pandemic's impact on retail trade volume. These shifts are evidenced by increased volatility and changes in the turnover's level during the pandemic period.
+
+
+In summery, The impact of COVID-19 introduced considerable volatility and disrupted typical seasonal patterns. These effects must be accounted for in the forecasting models to ensure accuracy. Understanding these disruptions is crucial for developing reliable forecasts and making informed business decisions.
+
+These observations provide a comprehensive understanding of the data's characteristics, which are crucial for developing accurate forecasting models.
+
+
+
+# Making the Data Ready for Forecasting (Transformation, Differencing & Unit Root Testing)
+
+- Before building reliable time series models, we need to address two key statistical requirements:
+
+ - Stabilizing variance (to handle increasing scale over time)
+ - Achieving stationarity (to make the data model-ready)
+ - We applied a series of transformations and diagnostic tests to prepare the data.
+
+## 🔄 Log Transformation (to stabilize variance)
+
+```{r}
+# Apply log transformation
+retail <- retail %>%
+  mutate(log_turnover = log(Turnover))
+
+
+# Plot the log-transformed turnover data
+retail %>%
+  autoplot(log_turnover) +
+  labs(title = "Log-Transformed Food Retailing", y = "Log Turnover") +
+  theme_minimal()
+```
+
+📊 Insight:
+The log transformation helps reduce the amplitude of fluctuations as turnover increases over time. This is essential in datasets that show heteroscedasticity — where variability grows with the level of the series.
+
+
+## 📉 Box-Cox Transformation (Automated Variance Stabilization)
+
+```{r}
+# Calculate optimal lambda for Box-Cox transformation
+lambda <- retail %>%
+  features(Turnover, features = guerrero) %>%
+  pull(lambda_guerrero)
+
+
+# Apply Box-Cox transformation
+retail <- retail %>%
+  mutate(boxcox_turnover = box_cox(Turnover, lambda))
+
+retail %>%
+  autoplot(boxcox_turnover) +
+  labs(title = "Box-Cox Transformed Retail Trade Volume", y = "Box-Cox Turnover") +
+  theme_minimal()
+```
+-📌 Lambda value: `r round(lambda, 2)`
+Box-Cox transformation automatically selects the best exponent to normalize variance. In our case, the lambda was slightly negative, which closely aligns with a log transformation — confirming our earlier step.
+
+
+## 🧪 Unit Root Test: KPSS
+To verify whether the series is stationary, we used the KPSS test (Kwiatkowski–Phillips–Schmidt–Shin). This test evaluates the null hypothesis that a series is stationary.
+
+
+```{r}
+#Features for Retail 
+retail |>
+  features(Turnover, unitroot_ndiffs)
+
+```
+
+🧠 Interpretation:
+ - The KPSS test returned a high statistic with a p-value < 0.05, suggesting the presence of a unit root.
+ - This means the time series is non-stationary and requires differencing to remove trend and seasonality.
+
+
+
+# 🔁 Differencing for Stationarity
+
+To make the time series suitable for ARIMA modeling, we applied differencing to eliminate trend and seasonality, ensuring the data becomes stationary (a key requirement for time series forecasting).
+
+## 📉Regular + Seasonal Differencing
+```{r}
+retail |>
+  gg_tsdisplay(
+    Turnover |>
+      box_cox(lambda) |>
+      difference(lag = 1) |>
+      difference(),
+    plot_type = "partial"
+  )
+```
+
+
+- *Seasonal Differencing*: Next, a seasonal difference with a lag of 12 months was applied to remove the annual seasonal pattern.
+
+```{r}
+retail |>
+  gg_tsdisplay(
+    Turnover |>
+      box_cox(lambda) |>
+      difference(lag = 1
+                 ),
+      plot_type = "partial"
+  )
+
+```
+
+
+In conclusion, the variance was stabilised via a log transformation, and stationarity was attained by the application of both regular and seasonal differencing. The final transformed and differenced series is stationary, which makes it appropriate for precise forecasting, according to the unit-root test (KPSS Test).
+
+
+Since stationarity is a fundamental premise of time series forecasting models like ARIMA, these steps are essential for preparing the data.
+
+```{r}
+retail |>
+  mutate(diff_close = difference(Turnover)) |>
+  features(diff_close, unitroot_kpss)
+```
+
+
+# 🧠 Model Shortlisting Strategy
+
+This section outlines how we shortlisted candidate models for both ARIMA and ETS families, evaluated based on:
+
+- Theoretical model suitability
+- AIC values
+- Test set performance (last 24 months)
+
+- *ALL ARIMA models*
+
+We have already transformed, box_cox lambda = -0.07
+
+ARMIA(p = 12, d = 1, q = 0)
+
+ARMIA(p = 0, d = 1, q = 12)
+
+note - we wont be needing a constant cause it's centered around zero.
+
+Seasonal ARIMA models
+
+AR - ARIMA(p=1, d=1, q=0)(P= 4, D= 1, Q=0)[m=12]
+
+MA - ARIMA(p=0,d= 1, q=1)(P=0,D=1,Q=1)[m=12]
+
+Trying some combinations
+
+ARIMA(p=1,d= 1, q=1)(P=1,D=1,Q=1)[m=12]
+ARIMA(p=1,d= 1, q=1)(P=2,D=1,Q=1)[m=12]
+ARIMA(p=1,d= 1, q=1)(P=3,D=1,Q=1)[m=12]
+
+- *ALL ETS Models*
+
+Mostly, we will do a log transformation and then apply the ETS models to the data set. Few of the ETS models would be as follows:
+
+SES = ETS(value ~ error("A") + trend("N") + season("N")) - additive simple
+
+SES = ETS(value ~ error("M") + trend("N") + season("N")) - Multiplicative simple
+
+Holt = ETS(value ~ error("A") + trend("A") + season("N")) - Holt's additive
+
+Holt = ETS(value ~ error(M) + trend("A") + season("N")) - Holt's multiplicative
+ 
+Others ETS model we would consider are: 
+
+Damped = ETS(value ~ error("A") + trend("Ad") + season("N"))
+
+additive = ETS(Trips ~ error("A") + trend("A") + season("A")),
+
+multiplicative = ETS(Trips ~ error("M") + trend("A") + season("M")),
+
+hw = ETS(Count ~ error("M") + trend("Ad") + season("M"))
+
+
+## 🧪 Training/Test Set Split
+
+We trained models on data up to Dec 2020 and held out the last 24 months for validation:
+
+```{r}
+retail_train <- retail |>
+  filter(Month < yearmonth("2021 Jan"))
+```
+
+
+### 🛠️ Model Fitting – ARIMA
+
+```{r}
+retail_arima_fit <- retail_train |>
+  model(
+    auto = ARIMA(box_cox(Turnover, lambda )),
+    ar = ARIMA(box_cox(Turnover, lambda ) ~ 0 + pdq(1,1,0) + PDQ(4,1,0)),
+    ma = ARIMA(box_cox(Turnover, lambda) ~ 0 + pdq(0,1,1) + PDQ(0,1,1)),
+    mix = ARIMA(box_cox(Turnover, lambda) ~ 0 + pdq(1,1,1) + PDQ(1,1,1)),
+  )
+```
+
+
+📊 ARIMA Model Comparison (via AIC) 
+
+```{r}
+glance(retail_arima_fit)
+```
+
+
+- The table compares ARIMA models for food retailing in Western Australia based on various metrics. The auto ARIMA model has the lowest AIC (-1525.106), indicating it is the best fit among the evaluated models (ar, ma, mix). This suggests the auto model provides the best balance between model complexity and goodness of fit.
+
+
+# ✅ ETS Model Fitting
+
+```{r}
+retail_ets_fit <- retail_train |>
+  model(
+    ets = ETS(log(Turnover)),
+    ann = ETS(log(Turnover) ~ error("A") + trend("N") + season("N")),
+    mnn = ETS(log(Turnover) ~ error("M") + trend("N") + season("N")),
+    holtm = ETS(log(Turnover) ~ error("M") + trend("A") + season("N")),
+    
+  )
+
+retail_ets_fit
+```
+
+```{r}
+glance(retail_ets_fit)
+```
+
+- The table compares various ETS models for food retailing in Western Australia using metrics such as `AIC`, `AICc`, `BIC` , `MSE`, and `AMSE`. The `ets` model has the lowest AIC (-432.0898), indicating it is the best fit among the evaluated models (`ann`, `mnn`, `holtm`). This suggests the `ets` model provides the best balance between model complexity and goodness of fit.
+
+
+*Results for test set*
+
+#### 🧪 Test Set Performance (2021–2022)
+
+📈 ARIMA Models
+
+```{r}
+retail_test_arima <- retail_arima_fit |>
+  forecast(h = "2 years") |>
+  accuracy(retail)
+
+retail_test_arima
+```
+
+- The `ma` ARIMA model performs best on the test set for food retailing in Western Australia, with the lowest ME (-56.89), RMSE (67.29), MAE (62.39), MPE (-4.03), MAPE (4.39), and MASE (1.79). This indicates it provides the most accurate forecasts.
+
+
+
+📉 ETS Model
+
+```{r}
+retail_test_ets <- retail_ets_fit |>
+  forecast(h = "2 years") |>
+  accuracy(retail)
+
+retail_test_ets
+
+```
+
+- The `ets` model performs best on the test set for food retailing in Western Australia, with the lowest ME (-51.08), RMSE (61.45), MAE (57.67), MPE (-3.60), MAPE (4.04), and MASE (1.66). This indicates it provides the most accurate forecasts.
+
+
+
+# 📊 Final Model Selection, Diagnostics & Forecast Evaluation
+
+🔷 ARIMA Model Selection
+
+Based on AIC, test-set accuracy, and residual diagnostics, the selected ARIMA model is a Moving Average (MA) model:
+ARIMA(0,1,1)(0,1,1)[12] — designed to capture short-term shocks and annual seasonality.
+
+
+## 🧮 The Chosen Model For `ARIMA` is `MA`.
+
+```{r}
+retail_arima_fit |>
+  select(ma) |>
+  report()
+```
+
+
+## 📈 Forecast (2-Year Horizon)
+
+```{r}
+retail_test_arima <- retail_arima_fit|>
+  forecast(h = "2 years") 
+
+retail_test_arima
+```
+
+
+## 📉 Residual Diagnostics
+
+```{r}
+retail_arima_fit |>
+  select(ma) |>
+  gg_tsresiduals() +
+  labs(title = "Residuals of Auto Arima Model")
+```
+
+
+- The residuals of the auto ARIMA model show mostly random fluctuations around zero, indicating a good fit. The ACF plot reveals no significant autocorrelations, suggesting residuals are uncorrelated. The histogram of residuals approximates a normal distribution, though there is a notable spike around 2020, indicating a potential anomaly or outlier during that period. Overall, the diagnostics suggest the model fits the data well with some exceptions.
+
+
+## 🔄 Autocorrelation Check
+```{r}
+retail_arima_fit |>
+  residuals() |>
+  filter(!is.na(.resid)) |>
+  ACF(.resid) |>
+  autoplot() +
+  labs(title = "Autocorrelation of ARIMA Residuals")
+
+```
+
+
+- The ACF plots of the residuals for the ARIMA models (ar, ma, mix) show that most autocorrelations are within the significance bounds, indicating no significant autocorrelation in the residuals. This suggests that the models adequately capture the structure in the data, with residuals behaving like white noise. However, there are minor deviations in some lags, particularly in the `ar` and `ma` models, which may indicate slight model inadequacies. Overall, the auto model shows the most consistent lack of significant autocorrelation, supporting its robustness.
+
+
+
+## 🔍 Ljung-Box Test
+
+```{r}
+augment(retail_arima_fit) |>
+  features(.innov, ljung_box, lag = 12)
+```
+
+# 📈 ETS Model Evaluation
+
+✅ Model Selection
+The selected `ETS` model is the automatically chosen `ets` model, which optimally selects components of error, trend, and seasonality from the data.
+
+
+```{r}
+retail_ets_fit |>
+  select(ets) |>
+  report()
+```
+
+## 📊 2-Year Forecast (Test Set)
+
+
+```{r}
+retail_test_ets <- retail_ets_fit |>
+  forecast(h = "2 years") 
+
+retail_test_ets
+```
+
+
+```{r}
+retail_test_ets |>
+  autoplot(retail) +
+  labs(title = "Population Forecasting Test Set")
+```
+- The forecast plot for the test set shows predictions from four ETS models (ann, ets, holtm, mnn) for food retailing turnover in Western Australia. The `ets` model, indicated in green, aligns closely with the observed data, suggesting accurate forecasting. Prediction intervals at 80% and 95% confidence levels are shown, with the `ets` model providing the tightest intervals, indicating higher forecast confidence compared to the other models.
+
+
+## 📉 Residual Diagnostics
+
+```{r}
+retail_ets_fit |>
+  select(ets) |>
+  gg_tsresiduals() +
+  labs(title = "Residuals of ETS Model")
+```
+- The residuals plot for the ETS model shows random fluctuations around zero, indicating a good model fit. The ACF plot shows no significant autocorrelations, suggesting residuals are uncorrelated and behave like white noise. The histogram approximates a normal distribution, though a notable spike around 2020 indicates a potential outlier. Overall, the diagnostics suggest a good fit with some exceptions.
+
+```{r}
+retail_ets_fit |>
+  residuals() |>
+  ACF(.resid) |>
+  autoplot() +
+  labs(title = "Autocorrelation of Residuals")
+```
+- The ACF plots of residuals for the ETS models (ann, ets, holtm, mnn) show most autocorrelations within significance bounds, indicating no significant autocorrelation for the `ets` and `holtm` models. The `ann` and `mnn` models display some significant autocorrelations at certain lags, suggesting these models may not fully capture the data's structure. Overall, the `ets` and `holtm` models appear to fit the data better based on residual autocorrelation.
+
+## 📦 Ljung-Box Test
+
+```{r}
+augment(retail_ets_fit) |>
+  features(.innov, ljung_box, lag = 12)
+```
+
+
+# 🔍 Model Comparison – ARIMA vs ETS
+
+
+## Ljung-Box Test Interpretation
+
+- ARIMA Models: The auto ARIMA model has the lowest Ljung-Box statistic (22.48508) with a p-value (3.24e-02) greater than 0.01, indicating less significant autocorrelation in residuals compared to other ARIMA models.
+
+- ETS Models: All ETS models have very high Ljung-Box statistics and p-values of 0, indicating significant autocorrelation in residuals.
+
+
+## Model Comparison and Conclusion
+
+- ARIMA (auto): Among the ARIMA models, the auto ARIMA model shows the best performance with the lowest Ljung-Box statistic and a p-value suggesting acceptable residual autocorrelation. Additionally, it had the best fit with the lowest AIC value (-1525.106).
+
+- ETS (ets): Despite having a very high Ljung-Box statistic and p-value of 0, the ets model showed the best fit among ETS models with the lowest AIC (-432.0898).
+
+## Conclusion
+
+The auto ARIMA model is likely to give better forecasts based on test-set performance and residual diagnostics. It has the lowest AIC among ARIMA models, a relatively low Ljung-Box statistic, and an acceptable p-value, suggesting that the residuals do not exhibit significant autocorrelation. In contrast, the high Ljung-Box statistics for ETS models indicate significant autocorrelation, reducing confidence in their forecast accuracy.
+
+
+
+# 📊 Final Forecasts Using Full Data
+
+To generate actionable business forecasts, both selected models (ARIMA-MA and ETS-Auto) were retrained on the full historical dataset (April 1982 – December 2021). Forecasts were produced for two years beyond the end of the original dataset.
+
+
+🔁 ARIMA Model & ETS Model : Final Forecast
+
+```{r}
+
+data_fit_arima_full <- retail |>
+  model(
+    ma = ARIMA(box_cox(Turnover, lambda) ~ 0 + pdq(0,1,1) + PDQ(0,1,1))
+  )
+data_fit_arima_full
+
+fc_arima <- data_fit_arima_full |>
+  forecast(h = "2 years") 
+  
+fc_arima
+
+# Plot forecasts
+fc_arima |>
+  autoplot(retail, level = 80) +
+  labs(title = "ARIMA Model Forecasts (Full Data)", y = "Turnover(Million AUD$)", x = "Time") +
+  guides(colour = guide_legend(title = "Forecast"))
+
+data_fit_ets_full <- retail |>
+  model(
+    ETS = ETS(log(Turnover))
+  )
+data_fit_ets_full
+
+fc_ets <- data_fit_ets_full |>
+  forecast(h = "2 years") 
+  
+fc_ets
+
+# Plot forecasts
+fc_ets |>
+  autoplot(retail, level = 80) +
+  labs(title = "ETS Model Forecasts (Full Data)", y = "Turnover(Million AUD$)", x = "Time") +
+  guides(colour = guide_legend(title = "Forecast"))
+
+```
+
+
+
+- 📈 Forecast Comparison: ARIMA vs ETS
+
+
+  -🔹 ARIMA Model Forecasts:
+The ARIMA model (MA configuration) effectively captures both long-term trends and seasonal fluctuations in the retail turnover data. The forecast chart displays historical data (black) alongside future projections, with narrow 80% prediction intervals (blue), indicating high model confidence and minimal forecast uncertainty.
+
+  -🔸 ETS Model Forecasts:
+The ETS (Error-Trend-Seasonality) model also aligns well with the overall historical pattern and seasonal cycles. However, its prediction intervals are slightly wider, suggesting greater uncertainty in its forecasts compared to ARIMA. This may be due to the model’s sensitivity to recent fluctuations or limitations in handling irregular volatility.
+
+
+- 📊 Summary Comparison:
+The ARIMA model outperforms ETS in terms of confidence and reliability. It provides:
+
+  - Tighter forecast bounds
+  - Better alignment with actual data in test sets
+  - Lower residual autocorrelation
+
+
+💡 Recommendation: Use the ARIMA model for short- to mid-term planning and operational decisions where forecast accuracy and confidence are critical.
+
+
+
+# 📅 Comparison with Up-to-Date ABS Data
+
+
+After forecasting two years beyond the available data, we retrieved updated turnover figures from the ABS Retail Trade, Australia, Table 11 to assess forecast accuracy.
+
+```{r}
+
+library(readxl)
+library(tsibble)
+library(dplyr)
+library(readabs)
+
+# Read the latest ABS data
+retail_raw <- readxl::read_excel("data/8501011.xlsx", sheet = "Data1", skip = 9)
+
+# Ensure the date column is in the Date format and select relevant columns
+update_retail <- retail_raw %>%
+  rename(date = 'Series ID', Turnover = 'A3349742A') %>%  
+  mutate(
+    date = as.Date(date, format = "%Y-%m-%d"),  
+    Month = yearmonth(date)
+  ) %>%
+  select(Month, Turnover) %>%
+  filter(Month > max(retail$Month))
+
+# Extract constant values from the retail dataset
+state <- unique(retail$State)[1]
+industry <- unique(retail$Industry)[1]
+series_id <- unique(retail$'Series ID')[1]
+
+# Add the missing columns to retail_update
+update_retail <- update_retail %>%
+  mutate(
+    State = state,
+    Industry = industry,
+    'Series ID' = series_id
+  ) %>%
+  select(State, Industry, 'Series ID', Month, Turnover) %>%
+  as_tsibble(index = Month, key = c(State, Industry))
+
+# Check the structure of the updated data
+glimpse(update_retail)
+
+```
+
+# 📊 A discussion of benefits and limitations of the models for your data.
+
+## ARIMA Model
+
+### ✅ Benefits:
+
+- Flexibility: ARIMA models can capture a wide range of temporal structures due to their ability to model both autoregressive and moving average components.
+
+- Performance: The auto ARIMA model showed good performance with the lowest AIC and relatively low residual autocorrelation, indicating a good fit.
+
+- Forecast Accuracy: The narrow prediction intervals suggest high confidence and accuracy in forecasts.
+
+### ⚠️ Limitations:
+
+- Complexity: Selecting the correct order of differencing and parameters can be complex and requires careful diagnostics.
+
+- Stationarity Requirement: ARIMA models require the data to be stationary, often necessitating differencing, which can complicate the modeling process.
+
+- Sensitivity to Outliers: The presence of outliers, such as the spike seen around 2020, can significantly affect model accuracy and residual diagnostics.
+
+## ETS Model
+
+### ✅  Benefits:
+- Component Decomposition: ETS models explicitly model error, trend, and seasonality components, providing a clear interpretation of each component's impact on the series.
+
+- Automatic Selection: The ets model automatically selects the best combination of components, simplifying the modeling process.
+
+- Good Fit: The ets model showed good overall fit, capturing trend and seasonality effectively.
+
+
+## ⚠️ Limitations:
+
+- Residual Autocorrelation: The ETS models, particularly ann and mnn, showed significant residual autocorrelation, indicating some model inadequacies.
+
+- Wider Prediction Intervals: The slightly wider prediction intervals compared to ARIMA suggest more uncertainty in the forecasts.
+
+- Sensitivity to Seasonal Variations: ETS models may struggle with data that has irregular seasonal patterns or non-constant seasonal effects over time.
+
+
+## 🏁 Conclusion
+
+Both models have their strengths and weaknesses. The auto ARIMA model provides more reliable forecasts with higher confidence, but it requires careful parameter selection and is sensitive to non-stationarity and outliers. The ets model offers a clear interpretation of trend and seasonality and simplifies model selection, but it may exhibit higher residual autocorrelation and forecast uncertainty. For the given food retailing turnover data, the auto ARIMA model appears to offer better overall performance.
