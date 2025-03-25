@@ -32,6 +32,8 @@ _A complete business case forecasting retail turnover using ARIMA and ETS models
 
 🔹 **REN R Package for Financial Optimization**  
 _A CRAN-published package that supports Monte Carlo simulations, risk-adjusted return analysis, and financial modeling automation._  
+📦 [View on CRAN](https://cran.r-project.org/web/packages/REN/index.html)
+
 
 🔹 **Cost of Living vs Marginal Seats in Victoria (R Geospatial Project)**  
 _Geospatial data project using ABS census data and electoral results to analyze economic pressure in marginal electorates._  
@@ -47,7 +49,7 @@ _Geospatial data project using ABS census data and electoral results to analyze 
 
 ## 📈 Let's Connect!
 
-I’m always open to discussing data projects, freelance opportunities, or just geeking out over cool dashboards. Feel free to [reach out via email](mailto:hardikdixit1401@gmail.com) or connect on [LinkedIn](https://www.linkedin.com/in/your-linkedin).
+I’m always open to discussing data projects, freelance opportunities, or just geeking out over cool dashboards. Feel free to [reach out via email](mailto:hardikdixit1401@gmail.com) or connect on [LinkedIn](https://www.linkedin.com/in/hardik-dixit-/).
 
 ---
 
