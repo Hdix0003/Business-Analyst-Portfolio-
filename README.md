@@ -38,7 +38,7 @@ _A CRAN-published package that supports Monte Carlo simulations, risk-adjusted r
 🔹 **Cost of Living vs Marginal Seats in Victoria (R Geospatial Project)**  
 _Geospatial data project using ABS census data and electoral results to analyze economic pressure in marginal electorates._  
 
-🔹 Airbnb Market Trends – Power BI Dashboard (Melbourne)
+🔹 **Airbnb Market Trends – Power BI Dashboard (Melbourne)**
 _An interactive dashboard exploring Airbnb listings in Melbourne. It highlights pricing distribution, host behavior, availability rates, and review quality. Includes maps, KPIs, scatter plots, and revenue analysis._
 
 📊 Built using Power BI, Power Query, and DAX.
