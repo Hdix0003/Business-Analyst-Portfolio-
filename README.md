@@ -1,63 +1,61 @@
 # 👋 Hi, I'm Hardik Dixit!
 
-🎯 **Data Analyst | Business Intelligence Specialist | R & Power BI Enthusiast**  
-📍 Based in Melbourne, VIC | 💼 Open to Data-Focused Opportunities  
+🎯 **Data Analyst | Business Analyst | R & Power BI Enthusiast**  
+📍 Melbourne, VIC, Australia | 💼 Open to Data Analytics & Business Analyst Roles  
 📧 hardikdixit1401@gmail.com | [📇 LinkedIn](https://www.linkedin.com/in/hardik-dixit-/)
 
 ---
 
 ## 🔍 About Me
 
-I’m a detail-oriented and results-driven **Data Analyst** with 4+ years of experience translating complex data into actionable insights. My work spans industries including **healthcare, financial services, and consulting**, with a focus on **data visualization, reporting automation**, and **forecasting**.
+I’m a detail-driven **Data and Business Analyst** with 4+ years of experience translating complex data into actionable business insights. My work spans across **healthcare, finance, logistics, and consulting**, supporting performance optimization, forecasting, and decision-making through analytics.
 
-I love bringing data to life using tools like **Power BI, Tableau, R, SQL**, and **Excel**, and I’ve recently developed and published an R package — `REN` — that streamlines portfolio optimization for financial analysis.
+I specialize in uncovering trends, improving reporting processes, and developing dynamic dashboards using tools like **Power BI, Tableau, R, SQL**, and **Excel**. I recently authored and published `REN`, an R package for financial portfolio optimization on CRAN.
 
 ---
 
 ## 🧠 Skills Snapshot
 
-- **Visualization**: Power BI, Tableau, Google Data Studio, Excel (VBA, PivotTables)
-- **Programming**: R (tidyverse, ggplot2), Python (pandas), SQL
-- **Forecasting & Modelling**: Time Series (ARIMA, ETS), Monte Carlo Simulations
-- **Automation & BI**: Report Automation, Dashboard Development, Data Cleaning
-- **Tools & Platforms**: Salesforce (basic), Git, CRAN, VS Code, GitHub
+- **Analytics Tools**: Power BI, Tableau, Excel (PivotTables, VBA), Google Data Studio
+- **Programming Languages**: R (tidyverse, ggplot2), Python (pandas, numpy), SQL
+- **Business Analytics**: KPI Development, Forecasting, Financial Modeling, Root Cause Analysis
+- **Automation & Reporting**: Power Query, DAX, Dashboarding, Report Automation
+- **Other Tools**: Git, GitHub, CRAN, VS Code, Jira, Confluence
 
 ---
 
 ## 🚀 Featured Projects
 
-🔹 **Retail Forecasting Analysis (WA Food Retail)**  
-_A complete business case forecasting retail turnover using ARIMA and ETS models, with model diagnostics, AIC analysis, and real-time comparison with ABS data._  
+🔹 **Retail Forecasting Analysis – WA Food Retail**  
+_Built and validated time series models (ARIMA, ETS) to forecast food retail turnover using ABS datasets. Delivered insights to inform business decisions._
 
-
-🔹 **REN R Package for Financial Optimization**  
-_A CRAN-published package that supports Monte Carlo simulations, risk-adjusted return analysis, and financial modeling automation._  
+🔹 **REN R Package – Financial Portfolio Optimization**  
+_Created and published REN on CRAN to automate Monte Carlo simulations, return forecasts, and scenario analysis._  
 📦 [View on CRAN](https://cran.r-project.org/web/packages/REN/index.html)
 
+🔹 **Cost of Living & Marginal Seats – Victoria**  
+_A geospatial R-based project evaluating how rising living costs affect voter behavior in marginal electoral districts._
 
-🔹 **Cost of Living vs Marginal Seats in Victoria (R Geospatial Project)**  
-_Geospatial data project using ABS census data and electoral results to analyze economic pressure in marginal electorates._  
-
-🔹 **Airbnb Market Trends – Power BI Dashboard (Melbourne)**
-_An interactive dashboard exploring Airbnb listings in Melbourne. It highlights pricing distribution, host behavior, availability rates, and review quality. Includes maps, KPIs, scatter plots, and revenue analysis._
-
-📊 Built using Power BI, Power Query, and DAX.
-📥 Available for download in the Releases section on GitHub.
+🔹 **Airbnb Market Trends – Power BI Dashboard (Melbourne)**  
+_Interactive dashboard analyzing pricing, availability, review patterns, and host behavior of Airbnb listings across Melbourne._  
+📊 Built using Power BI, Power Query, and DAX | 📥 Download available in GitHub Releases
 
 ---
 
 ## 🎓 Education
 
-🎓 **Master’s in Business Analytics** — *Monash University*  
-🎓 **BBA in Finance & Accounting** — *MIT-WPU, India*
+🎓 **Master’s in Business Analytics** – Monash University, Melbourne  
+🎓 **Bachelor of Business Administration (Finance & Accounting)** – MIT-WPU, India
 
 ---
 
-## 📈 Let's Connect!
+## 📈 Let's Connect
 
-I’m always open to discussing data projects, freelance opportunities, or just geeking out over cool dashboards. Feel free to [reach out via email](mailto:hardikdixit1401@gmail.com) or connect on [LinkedIn](https://www.linkedin.com/in/hardik-dixit-/).
+I’m passionate about solving real-world problems through data. Whether it’s reporting, forecasting, or stakeholder analytics—I’m open to data-driven roles and collaborations.
+
+📧 [hardikdixit1401@gmail.com](mailto:hardikdixit1401@gmail.com)  
+🔗 [LinkedIn](https://www.linkedin.com/in/hardik-dixit-/)
 
 ---
 
 > _“Without data, you're just another person with an opinion.” — W. Edwards Deming_
-
